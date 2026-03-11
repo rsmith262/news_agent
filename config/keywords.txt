@@ -1,0 +1,18 @@
+﻿# Default topic keywords
+ai
+artificial intelligence
+machine learning
+robot
+robots
+data science
+grok
+openai
+chatgpt
+claude
+anthropic
+llm
+mistral
+gemini
+deepseek
+llama
+codex

@@ -23,6 +23,8 @@ This mirrors the Telegram bot flow, so Telegram can later become just a transpor
 - `Can you post me a news story?`
 - `Can you post me a news story from today?`
 - `Can you post me a news story about robotics from BBC?`
+- `Post me a story highlighting the risks of AI.`
+- `Post me a story that highlights the positives of AI but make it critical.`
 - `Write me a post analysing agentic AI tooling.`
 - `Explain RAG in one post.`
 

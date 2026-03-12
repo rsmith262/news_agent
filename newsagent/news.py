@@ -11,8 +11,60 @@ from .rss import FeedItem, parse_feed
 @dataclass
 class SearchRequest:
     topic: str | None
+    retrieval_framing: str | None
     feed_hint: str | None
     today_only: bool
+
+
+FRAMING_TERMS: dict[str, list[str]] = {
+    "positive": [
+        "benefit",
+        "benefits",
+        "positive",
+        "improvement",
+        "improvements",
+        "success",
+        "breakthrough",
+        "adoption",
+        "growth",
+        "opportunity",
+        "helpful",
+        "useful",
+    ],
+    "critical": [
+        "critical",
+        "skeptical",
+        "concern",
+        "concerns",
+        "backlash",
+        "controversy",
+        "controversial",
+        "lawsuit",
+        "problem",
+        "problems",
+        "risk",
+        "risks",
+        "warning",
+        "warnings",
+        "critic",
+        "criticism",
+    ],
+    "risk": [
+        "risk",
+        "risks",
+        "safety",
+        "harm",
+        "harms",
+        "misuse",
+        "bias",
+        "security",
+        "threat",
+        "warning",
+        "warnings",
+        "danger",
+        "dangerous",
+    ],
+}
 
 
 def _clean(text: str) -> str:
@@ -45,6 +97,22 @@ def _topic_terms(topic: str | None, default_keywords: list[str]) -> list[str]:
         terms.append(topic.lower())
 
     # If the user gave a topic, focus ranking on that topic instead of broad defaults.
+    return list(dict.fromkeys(terms))
+
+
+def _framing_terms(framing: str | None) -> list[str]:
+    if not framing:
+        return []
+
+    lowered = framing.lower().strip()
+    terms: list[str] = []
+    for key, values in FRAMING_TERMS.items():
+        if key in lowered:
+            terms.extend(values)
+
+    if not terms and lowered:
+        terms.append(lowered)
+
     return list(dict.fromkeys(terms))
 
 
@@ -95,6 +163,7 @@ def fetch_ranked_news(
     tz = ZoneInfo(timezone_name)
     now_local = datetime.now(tz)
     terms = _topic_terms(request.topic, default_keywords)
+    framing_terms = _framing_terms(request.retrieval_framing)
     ai_terms = [k.lower().strip() for k in default_keywords if k.strip()]
 
     scored: list[tuple[int, FeedItem]] = []
@@ -121,6 +190,11 @@ def fetch_ranked_news(
             # Enforce AI/topic relevance: at least one keyword hit is required.
             if hits == 0:
                 continue
+            if framing_terms:
+                framing_hits = _count_hits(haystack, framing_terms)
+                if framing_hits == 0:
+                    continue
+                score += framing_hits * 3
             if score <= 0:
                 continue
 

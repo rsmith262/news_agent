@@ -11,6 +11,8 @@ from openai import OpenAI
 class Intent:
     kind: str
     topic: str | None = None
+    retrieval_framing: str | None = None
+    writing_angle: str | None = None
     feed_hint: str | None = None
     today_only: bool = False
 
@@ -62,15 +64,39 @@ class LLM:
         from_match = re.search(r"\bfrom\s+(.+?)(?:\s+\babout\b|\s+\btoday\b|$)", user_text, flags=re.IGNORECASE)
         topic_hint = about_match.group(1).strip(" ?.,") if about_match else None
         feed_hint_hint = from_match.group(1).strip(" ?.,") if from_match else None
+        retrieval_hint = None
+        writing_hint = None
+
+        if "but make it" in lowered:
+            tail = lowered.split("but make it", 1)[1].strip(" .!?")
+            if tail:
+                writing_hint = tail
+
+        if any(term in lowered for term in {"risk", "risks", "safety", "harm", "harms"}):
+            retrieval_hint = "risk"
+        elif any(term in lowered for term in {"positive", "positives", "benefit", "benefits"}):
+            retrieval_hint = "positive"
+        elif any(term in lowered for term in {"critical of", "skeptical of"}):
+            retrieval_hint = "critical"
+
+        if writing_hint is None:
+            if "critical" in lowered or "skeptical" in lowered:
+                writing_hint = "critical"
+            elif "optimistic" in lowered or "positive" in lowered:
+                writing_hint = "optimistic"
+            elif "opinion" in lowered or "take" in lowered:
+                writing_hint = "opinionated"
 
         prompt = (
             "Classify the user request into JSON only with fields: "
-            "kind, topic, feed_hint, today_only.\n"
+            "kind, topic, retrieval_framing, writing_angle, feed_hint, today_only.\n"
             "kind must be one of: news, analysis, explain, help, unknown.\n"
             "Rules:\n"
             "- news: asks for a news story/news post.\n"
             "- analysis: asks for opinion/take/analysis on AI topic.\n"
             "- explain: asks to explain a concept.\n"
+            "- retrieval_framing is the type of story to retrieve, such as positive, critical, risk-focused.\n"
+            "- writing_angle is the requested perspective for the written post.\n"
             "- today_only true only if the user asks for today/date-limited content.\n"
             "- feed_hint is source name if user specifies one (like BBC, Guardian, Wired).\n"
             "Return strict JSON and no prose.\n\n"
@@ -85,19 +111,33 @@ class LLM:
             kind = "news"
 
         topic = data.get("topic")
+        retrieval_framing = data.get("retrieval_framing")
+        writing_angle = data.get("writing_angle")
         feed_hint = data.get("feed_hint")
         today_only = bool(data.get("today_only", False))
 
         final_topic = (str(topic).strip() or None) if topic is not None else None
+        final_retrieval_framing = (
+            str(retrieval_framing).strip() or None if retrieval_framing is not None else None
+        )
+        final_writing_angle = (
+            str(writing_angle).strip() or None if writing_angle is not None else None
+        )
         final_feed_hint = (str(feed_hint).strip() or None) if feed_hint is not None else None
         if topic_hint:
             final_topic = topic_hint
+        if retrieval_hint:
+            final_retrieval_framing = retrieval_hint
+        if writing_hint:
+            final_writing_angle = writing_hint
         if feed_hint_hint:
             final_feed_hint = feed_hint_hint
 
         return Intent(
             kind=kind,
             topic=final_topic,
+            retrieval_framing=final_retrieval_framing,
+            writing_angle=final_writing_angle,
             feed_hint=final_feed_hint,
             today_only=today_only or today_only_hint,
         )
@@ -158,7 +198,15 @@ class LLM:
             instruction = str(instruction).strip() or None
         return RevisionIntent(action=action, instruction=instruction)
 
-    def draft_news_post(self, policy_text: str, title: str, summary: str, source: str, topic: str | None) -> str:
+    def draft_news_post(
+        self,
+        policy_text: str,
+        title: str,
+        summary: str,
+        source: str,
+        topic: str | None,
+        writing_angle: str | None,
+    ) -> str:
         prompt = (
             "Write one Threads post draft using this policy and article details.\n"
             "Sound like a real person posting on Threads, not a press release or textbook.\n"
@@ -169,6 +217,7 @@ class LLM:
             "Return only the blurb text (no URL).\n\n"
             f"Policy:\n{policy_text}\n\n"
             f"Topic preference: {topic or 'None'}\n"
+            f"Writing angle: {writing_angle or 'None'}\n"
             f"Source: {source}\n"
             f"Title: {title}\n"
             f"Summary: {summary}\n"

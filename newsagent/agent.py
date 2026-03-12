@@ -45,6 +45,7 @@ class NewsAgent:
             feed_urls=self.feed_urls,
             request=SearchRequest(
                 topic=intent.topic,
+                retrieval_framing=intent.retrieval_framing,
                 feed_hint=intent.feed_hint,
                 today_only=intent.today_only,
             ),
@@ -63,11 +64,14 @@ class NewsAgent:
                 summary=item.summary,
                 source=item.source,
                 topic=intent.topic,
+                writing_angle=intent.writing_angle,
             )
             # Force grounded output with canonical feed link appended.
             draft = f"{blurb.rstrip()}\n\n{item.link}"
             context = (
                 f"Mode: news\n"
+                f"Retrieval framing: {intent.retrieval_framing or 'None'}\n"
+                f"Writing angle: {intent.writing_angle or 'None'}\n"
                 f"Source: {item.source}\n"
                 f"Title: {item.title}\n"
                 f"Summary: {item.summary}\n"
@@ -131,6 +135,7 @@ class NewsAgent:
             "- 'Can you post me a news story?'\n"
             "- 'Can you post me a news story from today?'\n"
             "- 'Can you post me a news story about Claude from Anthropic?'\n"
+            "- 'Post me a story highlighting the risks of AI.'\n"
             "- 'Write me a post analysing AI agents in customer support.'\n"
             "- 'Explain retrieval-augmented generation in one post.'\n\n"
             "Once I show a draft, you can reply with:\n"

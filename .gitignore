@@ -1,6 +1,7 @@
 .env
 __pycache__/
 *.pyc
+.newsagent_state.json
 .venv/
 .vscode/
 venv/

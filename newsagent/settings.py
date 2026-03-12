@@ -18,12 +18,27 @@ class Settings:
     keywords_file: Path
     policy_file: Path
     max_candidates: int
+    telegram_bot_token: str | None
+    telegram_chat_id: int | None
+    telegram_user_id: int | None
 
 
 def _as_bool(value: str | None, default: bool) -> bool:
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _as_int(value: str | None) -> int | None:
+    if value is None:
+        return None
+    cleaned = value.strip()
+    if not cleaned:
+        return None
+    try:
+        return int(cleaned)
+    except ValueError as exc:
+        raise ValueError(f"Expected integer value in .env, got: {value!r}") from exc
 
 
 def load_settings(base_dir: Path | None = None) -> Settings:
@@ -44,4 +59,7 @@ def load_settings(base_dir: Path | None = None) -> Settings:
         keywords_file=root / "config" / "keywords.txt",
         policy_file=root / "config" / "posting_policy.md",
         max_candidates=int(os.getenv("MAX_CANDIDATES", "3")),
+        telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", "").strip() or None,
+        telegram_chat_id=_as_int(os.getenv("TELEGRAM_CHAT_ID")),
+        telegram_user_id=_as_int(os.getenv("TELEGRAM_USER_ID")),
     )

@@ -16,6 +16,8 @@ This mirrors the Telegram bot flow, so Telegram can later become just a transpor
    - `pip install -r requirements.txt`
 3. Start local chat:
    - `python -m newsagent.cli`
+4. Start Telegram bot in local polling mode:
+   - `python -m newsagent.telegram_bot`
 
 ## Example requests
 - `Can you post me a news story?`
@@ -37,6 +39,11 @@ Then reply with things like:
 - `config/feeds.txt` approved RSS feeds
 - `config/keywords.txt` default search keywords
 - `config/posting_policy.md` tone/rules prompt template
+
+## Telegram env vars
+- `TELEGRAM_BOT_TOKEN` bot token from BotFather
+- `TELEGRAM_CHAT_ID` your private Telegram chat ID
+- `TELEGRAM_USER_ID` your Telegram user ID
 
 ## Notes
 - Time/date filter uses UK timezone (`Europe/London`).

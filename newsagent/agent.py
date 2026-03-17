@@ -153,7 +153,7 @@ class NewsAgent:
             return "No pending draft. Ask for a new post first."
 
         current = self.pending_candidates[self.current_index]
-        lines = [f"Draft {self.current_index + 1} of {len(self.pending_candidates)}:"]
+        lines = ["Draft:"]
         lines.append(f"Mode: {current.mode.upper()}")
         if current.item:
             lines.append(f"Source: {current.item.source}")
@@ -163,7 +163,8 @@ class NewsAgent:
         lines.append("")
         lines.append("Reply with:")
         lines.append("- approve")
-        lines.append("- another")
+        if len(self.pending_candidates) > 1:
+            lines.append("- another")
         lines.append("- make it shorter")
         lines.append("- make it more critical")
         lines.append("- give it more opinion")

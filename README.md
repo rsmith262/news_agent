@@ -11,7 +11,7 @@ Local CLI for testing a Telegram-style AI news posting workflow before wiring Te
 This mirrors the Telegram bot flow, so Telegram can later become just a transport layer.
 
 ## Run
-1. Ensure `.env` contains `OPENAI_API_KEY` (and optional Threads vars).
+1. Ensure `.env` contains `OPENAI_API_KEY` and optional delivery vars like Telegram / Threads.
 2. Install dependencies:
    - `pip install -r requirements.txt`
 3. Start local chat:
@@ -46,6 +46,10 @@ Then reply with things like:
 - `TELEGRAM_BOT_TOKEN` bot token from BotFather
 - `TELEGRAM_CHAT_ID` your private Telegram chat ID
 - `TELEGRAM_USER_ID` your Telegram user ID
+
+## Threads env vars
+- `THREADS_ACCESS_TOKEN` official Threads API access token
+- `DRY_RUN=true` keeps posting in preview mode
 
 ## Notes
 - Time/date filter uses UK timezone (`Europe/London`).

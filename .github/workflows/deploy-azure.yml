@@ -38,10 +38,12 @@ jobs:
             az extension add --name containerapp --upgrade
 
       - name: ACR Login
-        uses: azure/CLI@v2
-        with:
-          inlineScript: |
-            az acr login --name $ACR_NAME
+        shell: bash
+        run: |
+          TOKEN=$(az acr login --name "$ACR_NAME" --expose-token --output tsv --query accessToken)
+          echo "$TOKEN" | docker login "$REGISTRY_LOGIN_SERVER" \
+            --username 00000000-0000-0000-0000-000000000000 \
+            --password-stdin
 
       - name: Build And Push Image
         run: |

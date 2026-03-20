@@ -18,6 +18,8 @@ This mirrors the Telegram bot flow, so Telegram can later become just a transpor
    - `python -m newsagent.cli`
 4. Start Telegram bot in local polling mode:
    - `python -m newsagent.telegram_bot`
+5. Start the webhook app locally or in production:
+   - `python -m uvicorn newsagent.web_app:app --host 0.0.0.0 --port 8000`
 
 ## Example requests
 - `Can you post me a news story?`
@@ -50,6 +52,28 @@ Then reply with things like:
 ## Threads env vars
 - `THREADS_ACCESS_TOKEN` official Threads API access token
 - `DRY_RUN=true` keeps posting in preview mode
+
+## Production env vars
+- `APP_BASE_URL` public base URL of the deployed app, for example `https://ai-newsagent.<azure-domain>`
+- `TELEGRAM_WEBHOOK_SECRET` shared secret sent by Telegram webhook requests
+- `PORT` port used by the web server in Azure
+
+## GitHub secrets for Azure deploy
+- `AZURE_CLIENT_ID`
+- `AZURE_TENANT_ID`
+- `AZURE_SUBSCRIPTION_ID`
+- `OPENAI_API_KEY`
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHAT_ID`
+- `TELEGRAM_USER_ID`
+- `THREADS_ACCESS_TOKEN`
+- `TELEGRAM_WEBHOOK_SECRET`
+
+## After first Azure deploy
+1. Get the Container App FQDN from the workflow output.
+2. Set `APP_BASE_URL` to `https://<that-fqdn>`.
+3. Run:
+   - `python -m newsagent.set_webhook`
 
 ## Notes
 - Time/date filter uses UK timezone (`Europe/London`).

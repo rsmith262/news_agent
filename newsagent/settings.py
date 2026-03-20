@@ -21,6 +21,10 @@ class Settings:
     telegram_bot_token: str | None
     telegram_chat_id: int | None
     telegram_user_id: int | None
+    app_base_url: str | None
+    telegram_webhook_secret: str | None
+    web_host: str
+    web_port: int
 
 
 def _as_bool(value: str | None, default: bool) -> bool:
@@ -39,6 +43,13 @@ def _as_int(value: str | None) -> int | None:
         return int(cleaned)
     except ValueError as exc:
         raise ValueError(f"Expected integer value in .env, got: {value!r}") from exc
+
+
+def _as_str(value: str | None) -> str | None:
+    if value is None:
+        return None
+    cleaned = value.strip()
+    return cleaned or None
 
 
 def load_settings(base_dir: Path | None = None) -> Settings:
@@ -62,4 +73,8 @@ def load_settings(base_dir: Path | None = None) -> Settings:
         telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", "").strip() or None,
         telegram_chat_id=_as_int(os.getenv("TELEGRAM_CHAT_ID")),
         telegram_user_id=_as_int(os.getenv("TELEGRAM_USER_ID")),
+        app_base_url=_as_str(os.getenv("APP_BASE_URL")),
+        telegram_webhook_secret=_as_str(os.getenv("TELEGRAM_WEBHOOK_SECRET")),
+        web_host=os.getenv("WEB_HOST", "0.0.0.0").strip() or "0.0.0.0",
+        web_port=int(os.getenv("PORT", os.getenv("WEB_PORT", "8000"))),
     )

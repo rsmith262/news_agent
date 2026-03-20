@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from .io_utils import load_lines, load_text
@@ -17,6 +18,26 @@ class DraftCandidate:
     draft: str
     mode: str
     context: str
+
+
+DEFAULT_HASHTAGS = ("#ArtificialIntelligence", "#AI")
+BRAND_HASHTAGS: tuple[tuple[str, str], ...] = (
+    ("openai", "#OpenAI"),
+    ("chatgpt", "#ChatGPT"),
+    ("anthropic", "#Anthropic"),
+    ("claude", "#Claude"),
+    ("gemini", "#Gemini"),
+)
+CONTEXT_HASHTAGS: tuple[tuple[str, str], ...] = (
+    ("llm", "#LLM"),
+    ("agent", "#AIAgents"),
+    ("agents", "#AIAgents"),
+    ("machine learning", "#MachineLearning"),
+    ("model", "#GenAI"),
+    ("models", "#GenAI"),
+    ("generative", "#GenAI"),
+    ("genai", "#GenAI"),
+)
 
 
 class NewsAgent:
@@ -77,31 +98,33 @@ class NewsAgent:
                 f"Summary: {item.summary}\n"
                 f"Link: {item.link}"
             )
-            candidates.append(DraftCandidate(item=item, draft=draft, mode="news", context=context))
+            candidate = DraftCandidate(item=item, draft=draft, mode="news", context=context)
+            candidate.draft = self._normalize_candidate_draft(candidate, candidate.draft)
+            candidates.append(candidate)
 
         return candidates
 
     def _build_analysis_candidates(self, user_text: str) -> list[DraftCandidate]:
         draft = self.llm.draft_analysis_post(self.policy_text, user_text)
-        return [
-            DraftCandidate(
-                item=None,
-                draft=draft,
-                mode="analysis",
-                context=f"Mode: analysis\nOriginal request: {user_text}",
-            )
-        ]
+        candidate = DraftCandidate(
+            item=None,
+            draft=draft,
+            mode="analysis",
+            context=f"Mode: analysis\nOriginal request: {user_text}",
+        )
+        candidate.draft = self._normalize_candidate_draft(candidate, candidate.draft)
+        return [candidate]
 
     def _build_explainer_candidates(self, user_text: str) -> list[DraftCandidate]:
         draft = self.llm.draft_explainer_post(self.policy_text, user_text)
-        return [
-            DraftCandidate(
-                item=None,
-                draft=draft,
-                mode="explain",
-                context=f"Mode: explain\nOriginal request: {user_text}",
-            )
-        ]
+        candidate = DraftCandidate(
+            item=None,
+            draft=draft,
+            mode="explain",
+            context=f"Mode: explain\nOriginal request: {user_text}",
+        )
+        candidate.draft = self._normalize_candidate_draft(candidate, candidate.draft)
+        return [candidate]
 
     def handle_new_request(self, user_text: str) -> str:
         intent = self.llm.parse_intent(user_text)
@@ -198,11 +221,50 @@ class NewsAgent:
             self.state.posted_urls.add(candidate.item.link.strip().lower())
             save_state(self.settings.state_file, self.state)
 
+    def _strip_hashtags(self, text: str) -> str:
+        cleaned = re.sub(r"(?<!\w)#[A-Za-z][A-Za-z0-9_]*", "", text)
+        cleaned = re.sub(r"[ \t]+", " ", cleaned)
+        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+        return cleaned.strip()
+
+    def _select_hashtags(self, candidate: DraftCandidate, text: str) -> list[str]:
+        haystack = f"{text}\n{candidate.context}".lower()
+        tags: list[str] = list(DEFAULT_HASHTAGS)
+
+        for needle, hashtag in BRAND_HASHTAGS:
+            if needle in haystack and hashtag not in tags:
+                tags.append(hashtag)
+                break
+
+        for needle, hashtag in CONTEXT_HASHTAGS:
+            if needle in haystack and hashtag not in tags:
+                tags.append(hashtag)
+                break
+
+        deduped: list[str] = []
+        for tag in tags:
+            if tag not in deduped:
+                deduped.append(tag)
+
+        return deduped[:4]
+
     def _normalize_candidate_draft(self, candidate: DraftCandidate, draft: str) -> str:
         normalized = draft.strip()
-        if candidate.item and candidate.item.link not in normalized:
-            normalized = f"{normalized}\n\n{candidate.item.link}"
-        return normalized
+        link = candidate.item.link if candidate.item else None
+
+        if link and link in normalized:
+            body = normalized.replace(link, "").strip()
+        else:
+            body = normalized
+
+        body = self._strip_hashtags(body)
+        hashtags = self._select_hashtags(candidate, body)
+        if hashtags:
+            body = f"{body}\n\n{' '.join(hashtags)}".strip()
+
+        if link:
+            return f"{body}\n\n{link}".strip()
+        return body.strip()
 
     def handle_candidate_action(self, user_text: str) -> str:
         candidate = self._current_candidate()
@@ -223,7 +285,8 @@ class NewsAgent:
 
         if revision.action == "approve":
             result = self.poster.post(candidate.draft)
-            self._save_posted_item(candidate)
+            if result.posted:
+                self._save_posted_item(candidate)
             self.pending_candidates = []
             self.current_index = 0
             return result.message

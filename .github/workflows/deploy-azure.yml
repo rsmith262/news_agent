@@ -1,0 +1,103 @@
+name: Deploy To Azure Container Apps
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  RESOURCE_GROUP: rg-ainewsagent
+  CONTAINER_APP_NAME: ai-newsagent
+  CONTAINERAPPS_ENVIRONMENT: ai-newsagent-env
+  ACR_NAME: ainewsagent
+  IMAGE_NAME: news-agent
+  REGISTRY_LOGIN_SERVER: ainewsagent-guhgcjdxdsbbfsfq.azurecr.io
+  LOCATION: uksouth
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Azure CLI Setup
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            az extension add --name containerapp --upgrade
+
+      - name: ACR Login
+        uses: azure/docker-login@v2
+        with:
+          login-server: ${{ env.REGISTRY_LOGIN_SERVER }}
+
+      - name: Build And Push Image
+        run: |
+          docker build -t $REGISTRY_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }} .
+          docker push $REGISTRY_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}
+
+      - name: Ensure Container Apps Environment
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            az containerapp env show \
+              --name $CONTAINERAPPS_ENVIRONMENT \
+              --resource-group $RESOURCE_GROUP \
+              >/dev/null 2>&1 || \
+            az containerapp env create \
+              --name $CONTAINERAPPS_ENVIRONMENT \
+              --resource-group $RESOURCE_GROUP \
+              --location $LOCATION
+
+      - name: Deploy Container App
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            az containerapp show \
+              --name $CONTAINER_APP_NAME \
+              --resource-group $RESOURCE_GROUP \
+              >/dev/null 2>&1 || \
+            az containerapp create \
+              --name $CONTAINER_APP_NAME \
+              --resource-group $RESOURCE_GROUP \
+              --environment $CONTAINERAPPS_ENVIRONMENT \
+              --image $REGISTRY_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }} \
+              --target-port 8000 \
+              --ingress external \
+              --registry-server $REGISTRY_LOGIN_SERVER \
+              --min-replicas 0 \
+              --max-replicas 1
+
+            az containerapp update \
+              --name $CONTAINER_APP_NAME \
+              --resource-group $RESOURCE_GROUP \
+              --image $REGISTRY_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }} \
+              --set-env-vars \
+                OPENAI_API_KEY='${{ secrets.OPENAI_API_KEY }}' \
+                TELEGRAM_BOT_TOKEN='${{ secrets.TELEGRAM_BOT_TOKEN }}' \
+                TELEGRAM_CHAT_ID='${{ secrets.TELEGRAM_CHAT_ID }}' \
+                TELEGRAM_USER_ID='${{ secrets.TELEGRAM_USER_ID }}' \
+                THREADS_ACCESS_TOKEN='${{ secrets.THREADS_ACCESS_TOKEN }}' \
+                TELEGRAM_WEBHOOK_SECRET='${{ secrets.TELEGRAM_WEBHOOK_SECRET }}' \
+                DRY_RUN='false'
+
+      - name: Show App URL
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            az containerapp show \
+              --name $CONTAINER_APP_NAME \
+              --resource-group $RESOURCE_GROUP \
+              --query properties.configuration.ingress.fqdn \
+              -o tsv

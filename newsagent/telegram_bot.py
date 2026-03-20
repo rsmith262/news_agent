@@ -30,7 +30,9 @@ class TelegramRuntime:
         cleaned = user_text.strip()
         if not cleaned:
             return ""
-        if cleaned.lower() == "help":
+        if cleaned.lower() in {"/start", "start"}:
+            return "NewsAgent is running.\n\n" + self.agent.help_text()
+        if cleaned.lower() in {"/help", "help"}:
             return self.agent.help_text()
         if self.agent.pending_candidates:
             result = self.agent.handle_candidate_action(cleaned)
@@ -59,7 +61,10 @@ def run_telegram_bot() -> None:
 
     async def _reject_unauthorized(update: Update) -> None:
         if update.effective_message is not None:
-            await update.effective_message.reply_text("Unauthorized chat.")
+            await update.effective_message.reply_text(
+                "Unauthorized chat.",
+                disable_web_page_preview=True,
+            )
 
     async def _handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         del context
@@ -74,7 +79,7 @@ def run_telegram_bot() -> None:
 
         result = runtime.handle_text(message.text or "")
         if result:
-            await message.reply_text(result)
+            await message.reply_text(result, disable_web_page_preview=True)
 
     async def _start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         del context
@@ -87,7 +92,8 @@ def run_telegram_bot() -> None:
             return
         if update.effective_message is not None:
             await update.effective_message.reply_text(
-                "NewsAgent is running.\n\n" + runtime.agent.help_text()
+                "NewsAgent is running.\n\n" + runtime.agent.help_text(),
+                disable_web_page_preview=True,
             )
 
     async def _help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -100,7 +106,10 @@ def run_telegram_bot() -> None:
             await _reject_unauthorized(update)
             return
         if update.effective_message is not None:
-            await update.effective_message.reply_text(runtime.agent.help_text())
+            await update.effective_message.reply_text(
+                runtime.agent.help_text(),
+                disable_web_page_preview=True,
+            )
 
     app = Application.builder().token(runtime.settings.telegram_bot_token).build()
     app.add_handler(CommandHandler("start", _start))

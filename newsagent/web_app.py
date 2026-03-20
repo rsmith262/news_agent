@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-
 from fastapi import FastAPI, Header, HTTPException, Request
 from telegram import Bot, Update
 
@@ -40,12 +38,12 @@ async def telegram_webhook(
         return {"ok": True}
 
     if not runtime.is_authorized(chat.id, user.id):
-        await message.reply_text("Unauthorized chat.")
+        await message.reply_text("Unauthorized chat.", disable_web_page_preview=True)
         return {"ok": True}
 
     text = message.text or ""
     result = runtime.handle_text(text)
     if result:
-        await message.reply_text(result)
+        await message.reply_text(result, disable_web_page_preview=True)
 
     return {"ok": True}

@@ -79,6 +79,8 @@ jobs:
               --target-port 8000 \
               --ingress external \
               --registry-server $REGISTRY_LOGIN_SERVER \
+              --registry-username '${{ secrets.ACR_USERNAME }}' \
+              --registry-password '${{ secrets.ACR_PASSWORD }}' \
               --min-replicas 0 \
               --max-replicas 1
 
@@ -86,6 +88,9 @@ jobs:
               --name $CONTAINER_APP_NAME \
               --resource-group $RESOURCE_GROUP \
               --image $REGISTRY_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }} \
+              --registry-server $REGISTRY_LOGIN_SERVER \
+              --registry-username '${{ secrets.ACR_USERNAME }}' \
+              --registry-password '${{ secrets.ACR_PASSWORD }}' \
               --set-env-vars \
                 OPENAI_API_KEY='${{ secrets.OPENAI_API_KEY }}' \
                 TELEGRAM_BOT_TOKEN='${{ secrets.TELEGRAM_BOT_TOKEN }}' \

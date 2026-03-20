@@ -38,9 +38,10 @@ jobs:
             az extension add --name containerapp --upgrade
 
       - name: ACR Login
-        uses: azure/docker-login@v2
+        uses: azure/CLI@v2
         with:
-          login-server: ${{ env.REGISTRY_LOGIN_SERVER }}
+          inlineScript: |
+            az acr login --name $ACR_NAME
 
       - name: Build And Push Image
         run: |

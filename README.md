@@ -53,6 +53,11 @@ Then reply with things like:
 - `THREADS_ACCESS_TOKEN` official Threads API access token
 - `DRY_RUN=true` keeps posting in preview mode
 
+## Threads posting behavior
+- Final post text is capped at `500` characters, including any appended article link.
+- The app uses a single Threads `topic_tag` instead of hashtags.
+- Topic tags are chosen in code from the post context, with brand tags like `OpenAI` or `Claude` preferred when clearly relevant.
+
 ## Production env vars
 - `APP_BASE_URL` public base URL of the deployed app, for example `https://ai-newsagent.<azure-domain>`
 - `TELEGRAM_WEBHOOK_SECRET` shared secret sent by Telegram webhook requests

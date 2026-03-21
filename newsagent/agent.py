@@ -18,25 +18,30 @@ class DraftCandidate:
     draft: str
     mode: str
     context: str
+    topic_tag: str | None = None
 
 
-DEFAULT_HASHTAGS = ("#ArtificialIntelligence", "#AI")
-BRAND_HASHTAGS: tuple[tuple[str, str], ...] = (
-    ("openai", "#OpenAI"),
-    ("chatgpt", "#ChatGPT"),
-    ("anthropic", "#Anthropic"),
-    ("claude", "#Claude"),
-    ("gemini", "#Gemini"),
+THREADS_MAX_POST_LENGTH = 500
+DEFAULT_TOPIC_TAG = "Artificial Intelligence"
+BRAND_TOPIC_TAGS: tuple[tuple[str, str], ...] = (
+    ("openai", "OpenAI"),
+    ("chatgpt", "ChatGPT"),
+    ("anthropic", "Anthropic"),
+    ("claude", "Claude"),
+    ("gemini", "Gemini"),
+    ("mistral", "Mistral"),
+    ("llama", "Llama"),
+    ("deepseek", "DeepSeek"),
 )
-CONTEXT_HASHTAGS: tuple[tuple[str, str], ...] = (
-    ("llm", "#LLM"),
-    ("agent", "#AIAgents"),
-    ("agents", "#AIAgents"),
-    ("machine learning", "#MachineLearning"),
-    ("model", "#GenAI"),
-    ("models", "#GenAI"),
-    ("generative", "#GenAI"),
-    ("genai", "#GenAI"),
+CONTEXT_TOPIC_TAGS: tuple[tuple[str, str], ...] = (
+    ("machine learning", "Machine Learning"),
+    ("llm", "LLM"),
+    ("agent", "AI Agents"),
+    ("agents", "AI Agents"),
+    ("robot", "Robotics"),
+    ("robots", "Robotics"),
+    ("generative", "Generative AI"),
+    ("genai", "Generative AI"),
 )
 
 
@@ -98,7 +103,13 @@ class NewsAgent:
                 f"Summary: {item.summary}\n"
                 f"Link: {item.link}"
             )
-            candidate = DraftCandidate(item=item, draft=draft, mode="news", context=context)
+            candidate = DraftCandidate(
+                item=item,
+                draft=draft,
+                mode="news",
+                context=context,
+                topic_tag=self._select_topic_tag(context, draft),
+            )
             candidate.draft = self._normalize_candidate_draft(candidate, candidate.draft)
             candidates.append(candidate)
 
@@ -111,6 +122,7 @@ class NewsAgent:
             draft=draft,
             mode="analysis",
             context=f"Mode: analysis\nOriginal request: {user_text}",
+            topic_tag=self._select_topic_tag(user_text, draft),
         )
         candidate.draft = self._normalize_candidate_draft(candidate, candidate.draft)
         return [candidate]
@@ -122,6 +134,7 @@ class NewsAgent:
             draft=draft,
             mode="explain",
             context=f"Mode: explain\nOriginal request: {user_text}",
+            topic_tag=self._select_topic_tag(user_text, draft),
         )
         candidate.draft = self._normalize_candidate_draft(candidate, candidate.draft)
         return [candidate]
@@ -182,6 +195,8 @@ class NewsAgent:
             lines.append(f"Source: {current.item.source}")
             lines.append(f"Title: {current.item.title}")
             lines.append(f"Link: {current.item.link}")
+        if current.topic_tag:
+            lines.append(f"Topic tag: {current.topic_tag}")
         lines.append(f"Draft: {current.draft}")
         lines.append("")
         lines.append("Reply with:")
@@ -227,26 +242,27 @@ class NewsAgent:
         cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
         return cleaned.strip()
 
-    def _select_hashtags(self, candidate: DraftCandidate, text: str) -> list[str]:
-        haystack = f"{text}\n{candidate.context}".lower()
-        tags: list[str] = list(DEFAULT_HASHTAGS)
+    def _select_topic_tag(self, *parts: str) -> str:
+        haystack = "\n".join(parts).lower()
+        for needle, topic_tag in BRAND_TOPIC_TAGS:
+            if needle in haystack:
+                return topic_tag
+        for needle, topic_tag in CONTEXT_TOPIC_TAGS:
+            if needle in haystack:
+                return topic_tag
+        return DEFAULT_TOPIC_TAG
 
-        for needle, hashtag in BRAND_HASHTAGS:
-            if needle in haystack and hashtag not in tags:
-                tags.append(hashtag)
-                break
-
-        for needle, hashtag in CONTEXT_HASHTAGS:
-            if needle in haystack and hashtag not in tags:
-                tags.append(hashtag)
-                break
-
-        deduped: list[str] = []
-        for tag in tags:
-            if tag not in deduped:
-                deduped.append(tag)
-
-        return deduped[:4]
+    def _truncate_text(self, text: str, limit: int) -> str:
+        normalized = re.sub(r"[ \t]+", " ", text.strip())
+        if len(normalized) <= limit:
+            return normalized
+        if limit <= 3:
+            return normalized[:limit]
+        trimmed = normalized[: limit - 3].rstrip()
+        last_space = trimmed.rfind(" ")
+        if last_space >= max(20, limit // 2):
+            trimmed = trimmed[:last_space].rstrip()
+        return f"{trimmed}..."
 
     def _normalize_candidate_draft(self, candidate: DraftCandidate, draft: str) -> str:
         normalized = draft.strip()
@@ -258,13 +274,13 @@ class NewsAgent:
             body = normalized
 
         body = self._strip_hashtags(body)
-        hashtags = self._select_hashtags(candidate, body)
-        if hashtags:
-            body = f"{body}\n\n{' '.join(hashtags)}".strip()
-
         if link:
+            available_body = THREADS_MAX_POST_LENGTH - len(link) - 2
+            if available_body <= 0:
+                return self._truncate_text(link, THREADS_MAX_POST_LENGTH)
+            body = self._truncate_text(body, available_body)
             return f"{body}\n\n{link}".strip()
-        return body.strip()
+        return self._truncate_text(body, THREADS_MAX_POST_LENGTH).strip()
 
     def handle_candidate_action(self, user_text: str) -> str:
         candidate = self._current_candidate()
@@ -274,6 +290,7 @@ class NewsAgent:
         manual_edit = self._apply_manual_edit(user_text)
         if manual_edit:
             candidate.draft = self._normalize_candidate_draft(candidate, manual_edit)
+            candidate.topic_tag = self._select_topic_tag(candidate.context, candidate.draft)
             return self._render_current_candidate()
 
         revision: RevisionIntent = self.llm.parse_revision_intent(user_text)
@@ -284,7 +301,7 @@ class NewsAgent:
             return "Cancelled pending draft."
 
         if revision.action == "approve":
-            result = self.poster.post(candidate.draft)
+            result = self.poster.post(candidate.draft, topic_tag=candidate.topic_tag)
             if result.posted:
                 self._save_posted_item(candidate)
             self.pending_candidates = []
@@ -302,6 +319,7 @@ class NewsAgent:
                 context=candidate.context,
             )
             candidate.draft = self._normalize_candidate_draft(candidate, revised)
+            candidate.topic_tag = self._select_topic_tag(candidate.context, candidate.draft)
             return self._render_current_candidate()
 
         return "I couldn't parse that. Try 'approve', 'another', 'make it shorter', 'give it more opinion', 'edit: ...', or 'cancel'."

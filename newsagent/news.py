@@ -151,7 +151,7 @@ def _matches_date(item: FeedItem, today_only: bool, now_local: datetime, tz: Zon
     if today_only:
         return local_dt.date() == now_local.date()
 
-    return local_dt >= now_local - timedelta(days=2)
+    return local_dt >= now_local - timedelta(hours=72)
 
 
 def fetch_ranked_news(

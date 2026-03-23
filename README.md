@@ -82,6 +82,7 @@ Then reply with things like:
 
 ## Notes
 - Time/date filter uses UK timezone (`Europe/London`).
-- Default news window is the last 2 days unless you explicitly ask for "today".
+- Default news window is the last 72 hours unless you explicitly ask for "today".
 - Deduped posted links are stored in `.newsagent_state.json`.
 - `DRY_RUN` defaults to true unless set to true/false in `.env`.
+- Azure deploy now runs automatically on pushes to `main`, and can still be run manually from GitHub Actions.

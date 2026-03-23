@@ -22,3 +22,10 @@ https://www.mckinsey.com/featured-insights/artificial-intelligence/rss
 https://importai.substack.com/feed
 https://www.bensbites.co/rss
 https://tldr.tech/ai/rss
+https://research.google/blog/rss/
+https://machinelearning.apple.com/rss.xml
+https://pytorch.org/feed.xml
+https://developer.nvidia.com/blog/feed
+https://www.microsoft.com/en-us/ai/blog/feed/
+https://www.deeplearning.ai/the-batch/feed/
+https://qwenlm.github.io/blog/index.xml

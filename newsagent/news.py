@@ -66,6 +66,15 @@ FRAMING_TERMS: dict[str, list[str]] = {
     ],
 }
 
+TOPIC_ALIASES: dict[str, list[str]] = {
+    "anthropic": ["anthropic", "claude"],
+    "claude": ["claude", "anthropic"],
+    "openai": ["openai", "chatgpt", "gpt"],
+    "chatgpt": ["chatgpt", "openai", "gpt"],
+    "gpt": ["gpt", "openai", "chatgpt"],
+    "gemini": ["gemini", "google ai", "google"],
+}
+
 
 def _clean(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip().lower()
@@ -91,10 +100,17 @@ def _topic_terms(topic: str | None, default_keywords: list[str]) -> list[str]:
         return default_keywords
 
     parts = [p.strip() for p in re.split(r"[,/]|\band\b", topic, flags=re.IGNORECASE) if p.strip()]
-    terms = [t.lower() for t in parts]
+    terms: list[str] = []
+    for part in parts:
+        lowered = part.lower()
+        terms.append(lowered)
+        for alias in TOPIC_ALIASES.get(lowered, []):
+            terms.append(alias)
 
     if topic.lower() not in terms:
         terms.append(topic.lower())
+    for alias in TOPIC_ALIASES.get(topic.lower(), []):
+        terms.append(alias)
 
     # If the user gave a topic, focus ranking on that topic instead of broad defaults.
     return list(dict.fromkeys(terms))

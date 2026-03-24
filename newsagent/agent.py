@@ -66,8 +66,8 @@ class NewsAgent:
             filtered.append(item)
         return filtered
 
-    def _build_news_candidates(self, intent: Intent) -> list[DraftCandidate]:
-        items = fetch_ranked_news(
+    def _build_news_candidates(self, intent: Intent) -> tuple[list[DraftCandidate], str]:
+        matched_items = fetch_ranked_news(
             feed_urls=self.feed_urls,
             request=SearchRequest(
                 topic=intent.topic,
@@ -78,9 +78,12 @@ class NewsAgent:
             default_keywords=self.default_keywords,
             timezone_name=self.settings.timezone,
         )
-        items = self._filter_deduped(items)
+        if not matched_items:
+            return [], "no_matches"
+
+        items = self._filter_deduped(matched_items)
         if not items:
-            return []
+            return [], "deduped_only"
 
         candidates: list[DraftCandidate] = []
         for item in items[: self.settings.max_candidates]:
@@ -113,7 +116,7 @@ class NewsAgent:
             candidate.draft = self._normalize_candidate_draft(candidate, candidate.draft)
             candidates.append(candidate)
 
-        return candidates
+        return candidates, "ok"
 
     def _build_analysis_candidates(self, user_text: str) -> list[DraftCandidate]:
         draft = self.llm.draft_analysis_post(self.policy_text, user_text)
@@ -141,9 +144,10 @@ class NewsAgent:
 
     def handle_new_request(self, user_text: str) -> str:
         intent = self.llm.parse_intent(user_text)
+        no_match_reason = "no_matches"
 
         if intent.kind == "news":
-            candidates = self._build_news_candidates(intent)
+            candidates, no_match_reason = self._build_news_candidates(intent)
         elif intent.kind == "analysis":
             candidates = self._build_analysis_candidates(user_text)
         elif intent.kind == "explain":
@@ -159,7 +163,15 @@ class NewsAgent:
         if not candidates:
             self.pending_candidates = []
             self.current_index = 0
-            return "No matching deduped stories found for that request. Try another topic/feed/date filter."
+            if no_match_reason == "deduped_only":
+                return (
+                    "I found matching stories, but they were all already in the dedupe state. "
+                    "Try another topic or clear the posted state if you want to reuse them."
+                )
+            return (
+                "No matching stories found for that request in the current feed set and date window. "
+                "Try another topic, a specific source, or say 'today' if you want a stricter same-day search."
+            )
 
         self.pending_candidates = candidates
         self.current_index = 0

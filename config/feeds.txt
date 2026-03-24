@@ -4,12 +4,10 @@ https://www.theguardian.com/uk-news/rss
 https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml
 https://www.marktechpost.com/feed/
 https://www.wired.com/feed/rss
-https://openai.com/blog/rss/
 https://news.microsoft.com/source/topics/ai/feed/
 https://feeds.bbci.co.uk/news/technology/rss.xml
-https://openai.com/blog/rss.xml
-https://deepmind.google/blog/rss.xml
-https://www.anthropic.com/news/rss.xml
+https://openai.com/news/rss.xml
+https://blog.google/technology/ai/rss/
 https://www.technologyreview.com/topic/artificial-intelligence/feed/
 https://venturebeat.com/category/ai/feed/
 https://www.theverge.com/ai-artificial-intelligence/rss/index.xml

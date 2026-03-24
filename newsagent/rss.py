@@ -2,15 +2,21 @@
 
 import html
 import re
-import urllib.request
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime
 from email.utils import parsedate_to_datetime
 from typing import Iterable
 
+import httpx
+
 
 _TAG_STRIP_RE = re.compile(r"<[^>]+>")
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/133.0.0.0 Safari/537.36 NewsAgent/0.1"
+)
 
 
 @dataclass
@@ -65,15 +71,17 @@ def _parse_date(date_text: str) -> datetime | None:
 
 
 def _fetch_xml(url: str, timeout_sec: int = 15) -> bytes:
-    req = urllib.request.Request(
-        url,
+    with httpx.Client(
+        timeout=timeout_sec,
+        follow_redirects=True,
         headers={
-            "User-Agent": "NewsAgent/0.1 (+local testing)",
-            "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml",
+            "User-Agent": USER_AGENT,
+            "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
         },
-    )
-    with urllib.request.urlopen(req, timeout=timeout_sec) as resp:  # nosec B310
-        return resp.read()
+    ) as client:
+        response = client.get(url)
+        response.raise_for_status()
+        return response.content
 
 
 def parse_feed(url: str) -> list[FeedItem]:

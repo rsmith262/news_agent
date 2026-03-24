@@ -20,6 +20,8 @@ This mirrors the Telegram bot flow, so Telegram can later become just a transpor
    - `python -m newsagent.telegram_bot`
 5. Start the webhook app locally or in production:
    - `python -m uvicorn newsagent.web_app:app --host 0.0.0.0 --port 8000`
+6. Run the daily autopost locally:
+   - `python -m newsagent.autopost`
 
 ## Example requests
 - `Can you post me a news story?`
@@ -73,6 +75,13 @@ Then reply with things like:
 - `TELEGRAM_USER_ID`
 - `THREADS_ACCESS_TOKEN`
 - `TELEGRAM_WEBHOOK_SECRET`
+
+## Daily autopost
+- The scheduled workflow is in [.github/workflows/daily-autopost.yml](c:/Users/richard.smith/OneDrive%20-%20MAPP%20LTD/Desktop/VM%20Desktop/Python%20Jupyter%20Notebooks/NewsAgent/.github/workflows/daily-autopost.yml)
+- It runs once per day and waits a random amount of time so the post lands between `8am` and `9am` UK time.
+- It starts in `DRY_RUN=true` mode.
+- Dry-run previews are sent to your Telegram chat using `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
+- To make it live later, change `DRY_RUN` in that workflow from `"true"` to `"false"`.
 
 ## After first Azure deploy
 1. Get the Container App FQDN from the workflow output.

@@ -30,6 +30,12 @@ class RevisionIntent:
     instruction: str | None = None
 
 
+@dataclass
+class SafetyDecision:
+    allow: bool
+    reason: str
+
+
 def _extract_json(text: str) -> dict:
     text = text.strip()
     match = re.search(r"\{.*\}", text, flags=re.DOTALL)
@@ -279,3 +285,26 @@ class LLM:
             f"User instruction:\n{user_instruction}"
         )
         return self._complete(prompt, temperature=0.8)
+
+    def assess_autopost_safety(
+        self,
+        policy_text: str,
+        title: str,
+        summary: str,
+        source: str,
+    ) -> SafetyDecision:
+        prompt = (
+            "Decide whether this news story is safe for a broad automated Threads post.\n"
+            "Return strict JSON only with fields: allow, reason.\n"
+            "Use allow=false for content that is adult/sexual, illegal-instructional, scam/fraud, violent/extremist, "
+            "explicitly political, highly inflammatory, or otherwise reputationally risky for a neutral AI news account.\n"
+            "Prefer skipping borderline stories.\n\n"
+            f"Policy:\n{policy_text}\n\n"
+            f"Source: {source}\n"
+            f"Title: {title}\n"
+            f"Summary: {summary}\n"
+        )
+        data = _extract_json(self._complete(prompt, temperature=0.0))
+        allow = bool(data.get("allow", False))
+        reason = str(data.get("reason", "")).strip() or ("allowed" if allow else "skipped")
+        return SafetyDecision(allow=allow, reason=reason)

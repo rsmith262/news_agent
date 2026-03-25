@@ -111,7 +111,7 @@ class NewsAgent:
                 draft=draft,
                 mode="news",
                 context=context,
-                topic_tag=self._select_topic_tag(context, draft),
+                topic_tag=self._select_topic_tag(context),
             )
             candidate.draft = self._normalize_candidate_draft(candidate, candidate.draft)
             candidates.append(candidate)
@@ -302,7 +302,11 @@ class NewsAgent:
         manual_edit = self._apply_manual_edit(user_text)
         if manual_edit:
             candidate.draft = self._normalize_candidate_draft(candidate, manual_edit)
-            candidate.topic_tag = self._select_topic_tag(candidate.context, candidate.draft)
+            candidate.topic_tag = (
+                self._select_topic_tag(candidate.context)
+                if candidate.item
+                else self._select_topic_tag(candidate.context, candidate.draft)
+            )
             return self._render_current_candidate()
 
         revision: RevisionIntent = self.llm.parse_revision_intent(user_text)
@@ -331,7 +335,11 @@ class NewsAgent:
                 context=candidate.context,
             )
             candidate.draft = self._normalize_candidate_draft(candidate, revised)
-            candidate.topic_tag = self._select_topic_tag(candidate.context, candidate.draft)
+            candidate.topic_tag = (
+                self._select_topic_tag(candidate.context)
+                if candidate.item
+                else self._select_topic_tag(candidate.context, candidate.draft)
+            )
             return self._render_current_candidate()
 
         return "I couldn't parse that. Try 'approve', 'another', 'make it shorter', 'give it more opinion', 'edit: ...', or 'cancel'."

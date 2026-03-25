@@ -223,6 +223,7 @@ class LLM:
             "Avoid generic lead-ins like 'interesting to see' or bland recap language.\n"
             "Do not use em dashes. Use commas, colons, or full stops instead.\n"
             "Do not add claims not present in the article summary/title.\n"
+            "Do not infer company names, products, deals, protests, or events unless they are explicitly present in the title or summary.\n"
             "Return only the blurb text (no URL).\n\n"
             f"Policy:\n{policy_text}\n\n"
             f"Topic preference: {topic or 'None'}\n"

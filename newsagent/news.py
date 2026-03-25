@@ -80,6 +80,10 @@ def _clean(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip().lower()
 
 
+def _item_haystack(item: FeedItem) -> str:
+    return _clean(f"{item.title} {item.summary} {item.source} {item.feed_url} {item.link}")
+
+
 def _term_matches(haystack: str, term: str) -> bool:
     t = term.lower().strip()
     if not t:
@@ -133,7 +137,7 @@ def _framing_terms(framing: str | None) -> list[str]:
 
 
 def _score_item(item: FeedItem, terms: list[str], now_local: datetime, tz: ZoneInfo) -> tuple[int, int]:
-    haystack = _clean(f"{item.title} {item.summary}")
+    haystack = _item_haystack(item)
     score = 0
     hits = _count_hits(haystack, terms)
 
@@ -197,7 +201,7 @@ def fetch_ranked_news(
             if not _matches_date(item, request.today_only, now_local, tz):
                 continue
 
-            haystack = _clean(f"{item.title} {item.summary}")
+            haystack = _item_haystack(item)
             # Hard AI-only gate: must match at least one default AI keyword.
             if _count_hits(haystack, ai_terms) == 0:
                 continue

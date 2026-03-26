@@ -47,6 +47,11 @@ class TelegramRuntime:
             if not topic:
                 return "Usage: /debug <topic>"
             return self.agent.debug_topic(topic)
+        if cleaned.lower().startswith("/intent "):
+            request_text = cleaned.split(" ", 1)[1].strip()
+            if not request_text:
+                return "Usage: /intent <full request>"
+            return self.agent.debug_intent(request_text)
         if self.agent.pending_candidates:
             result = self.agent.handle_candidate_action(cleaned)
             if result.startswith("No pending draft"):

@@ -179,6 +179,17 @@ class NewsAgent:
 
         return "\n".join(lines)
 
+    def debug_intent(self, user_text: str) -> str:
+        intent = self.llm.parse_intent(user_text)
+        lines = ["Parsed intent:"]
+        lines.append(f"kind: {intent.kind}")
+        lines.append(f"topic: {intent.topic or 'None'}")
+        lines.append(f"retrieval_framing: {intent.retrieval_framing or 'None'}")
+        lines.append(f"writing_angle: {intent.writing_angle or 'None'}")
+        lines.append(f"feed_hint: {intent.feed_hint or 'None'}")
+        lines.append(f"today_only: {intent.today_only}")
+        return "\n".join(lines)
+
     def handle_new_request(self, user_text: str) -> str:
         intent = self.llm.parse_intent(user_text)
         no_match_reason = "no_matches"

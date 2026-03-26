@@ -1,14 +1,13 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import html
 import re
-import xml.etree.ElementTree as ET
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from email.utils import parsedate_to_datetime
-from typing import Iterable
 
-import httpx
+import feedparser
 
 
 _TAG_STRIP_RE = re.compile(r"<[^>]+>")
@@ -29,89 +28,53 @@ class FeedItem:
     published_at: datetime | None
 
 
-def _text(node: ET.Element | None) -> str:
-    if node is None:
+def _clean_html(text: str | None) -> str:
+    if not text:
         return ""
-    raw = "".join(node.itertext()).strip()
-    return html.unescape(_TAG_STRIP_RE.sub("", raw)).strip()
+    return html.unescape(_TAG_STRIP_RE.sub("", text)).strip()
 
 
-def _child_text(parent: ET.Element, names: Iterable[str]) -> str:
-    for name in names:
-        child = parent.find(name)
-        if child is not None:
-            value = _text(child)
-            if value:
-                return value
-    return ""
-
-
-def _parse_date(date_text: str) -> datetime | None:
-    if not date_text:
-        return None
-    try:
-        return parsedate_to_datetime(date_text)
-    except (TypeError, ValueError):
-        pass
-
-    for fmt in (
-        "%Y-%m-%dT%H:%M:%S%z",
-        "%Y-%m-%dT%H:%M:%SZ",
-        "%Y-%m-%d %H:%M:%S",
-        "%Y-%m-%d",
-    ):
+def _parse_date(entry) -> datetime | None:
+    published_parsed = getattr(entry, "published_parsed", None)
+    if published_parsed is not None:
         try:
-            parsed = datetime.strptime(date_text, fmt)
-            if parsed.tzinfo is None and fmt.endswith("Z"):
-                parsed = parsed.replace(tzinfo=datetime.UTC)
-            return parsed
-        except ValueError:
+            return datetime.fromtimestamp(time.mktime(published_parsed))
+        except (OverflowError, ValueError, OSError):
+            pass
+
+    updated_parsed = getattr(entry, "updated_parsed", None)
+    if updated_parsed is not None:
+        try:
+            return datetime.fromtimestamp(time.mktime(updated_parsed))
+        except (OverflowError, ValueError, OSError):
+            pass
+
+    for field in ("published", "updated"):
+        raw = getattr(entry, field, "") or ""
+        if not raw:
             continue
+        try:
+            return parsedate_to_datetime(raw)
+        except (TypeError, ValueError):
+            continue
+
     return None
-
-
-def _fetch_xml(url: str, timeout_sec: int = 15) -> bytes:
-    with httpx.Client(
-        timeout=timeout_sec,
-        follow_redirects=True,
-        headers={
-            "User-Agent": USER_AGENT,
-            "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
-        },
-    ) as client:
-        response = client.get(url)
-        response.raise_for_status()
-        return response.content
 
 
 def parse_feed(url: str) -> list[FeedItem]:
     try:
-        xml_data = _fetch_xml(url)
-        root = ET.fromstring(xml_data)
+        feed = feedparser.parse(url, agent=USER_AGENT)
     except Exception:
         return []
 
-    tag = root.tag.lower()
-    if tag.endswith("rss"):
-        return _parse_rss(root, url)
-    if tag.endswith("feed"):
-        return _parse_atom(root, url)
-    return []
+    entries = getattr(feed, "entries", []) or []
+    source = getattr(getattr(feed, "feed", None), "title", "") or url
 
-
-def _parse_rss(root: ET.Element, feed_url: str) -> list[FeedItem]:
-    channel = root.find("channel")
-    if channel is None:
-        return []
-
-    source = _child_text(channel, ["title"]) or feed_url
     items: list[FeedItem] = []
-
-    for item in channel.findall("item"):
-        title = _child_text(item, ["title"])
-        link = _child_text(item, ["link"])
-        summary = _child_text(item, ["description", "summary"])
-        published_raw = _child_text(item, ["pubDate", "published", "{*}date"])
+    for entry in entries:
+        title = _clean_html(getattr(entry, "title", ""))
+        link = (getattr(entry, "link", "") or "").strip()
+        summary = _clean_html(getattr(entry, "summary", "") or getattr(entry, "description", ""))
 
         if not title or not link:
             continue
@@ -122,42 +85,8 @@ def _parse_rss(root: ET.Element, feed_url: str) -> list[FeedItem]:
                 link=link,
                 summary=summary,
                 source=source,
-                feed_url=feed_url,
-                published_at=_parse_date(published_raw),
-            )
-        )
-
-    return items
-
-
-def _parse_atom(root: ET.Element, feed_url: str) -> list[FeedItem]:
-    source = _child_text(root, ["{*}title"]) or feed_url
-    items: list[FeedItem] = []
-
-    for entry in root.findall("{*}entry"):
-        title = _child_text(entry, ["{*}title"])
-        summary = _child_text(entry, ["{*}summary", "{*}content"])
-        published_raw = _child_text(entry, ["{*}published", "{*}updated", "{*}date"])
-
-        link = ""
-        for link_node in entry.findall("{*}link"):
-            href = link_node.attrib.get("href", "").strip()
-            rel = link_node.attrib.get("rel", "").strip().lower()
-            if href and rel in {"", "alternate"}:
-                link = href
-                break
-
-        if not title or not link:
-            continue
-
-        items.append(
-            FeedItem(
-                title=title,
-                link=link,
-                summary=summary,
-                source=source,
-                feed_url=feed_url,
-                published_at=_parse_date(published_raw),
+                feed_url=url,
+                published_at=_parse_date(entry),
             )
         )
 

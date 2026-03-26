@@ -42,6 +42,11 @@ class TelegramRuntime:
             return self.status_text()
         if cleaned.lower() in {"/help", "help"}:
             return self.status_text()
+        if cleaned.lower().startswith("/debug "):
+            topic = cleaned.split(" ", 1)[1].strip()
+            if not topic:
+                return "Usage: /debug <topic>"
+            return self.agent.debug_topic(topic)
         if self.agent.pending_candidates:
             result = self.agent.handle_candidate_action(cleaned)
             if result.startswith("No pending draft"):

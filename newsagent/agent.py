@@ -142,6 +142,43 @@ class NewsAgent:
         candidate.draft = self._normalize_candidate_draft(candidate, candidate.draft)
         return [candidate]
 
+    def debug_topic(self, topic: str) -> str:
+        request = SearchRequest(
+            topic=topic.strip() or None,
+            retrieval_framing=None,
+            feed_hint=None,
+            today_only=False,
+        )
+        matched_items = fetch_ranked_news(
+            feed_urls=self.feed_urls,
+            request=request,
+            default_keywords=self.default_keywords,
+            timezone_name=self.settings.timezone,
+        )
+        deduped_items = self._filter_deduped(matched_items)
+
+        lines = [f"Debug topic: {topic}"]
+        lines.append(f"Matched before dedupe: {len(matched_items)}")
+        lines.append(f"Matched after dedupe: {len(deduped_items)}")
+
+        if matched_items:
+            lines.append("")
+            lines.append("Top raw matches:")
+            for item in matched_items[:5]:
+                lines.append(f"- {item.source} | {item.title}")
+
+        if deduped_items:
+            lines.append("")
+            lines.append("Top deduped matches:")
+            for item in deduped_items[:5]:
+                lines.append(f"- {item.source} | {item.title}")
+
+        if not matched_items:
+            lines.append("")
+            lines.append("No raw matches found in the current feed set.")
+
+        return "\n".join(lines)
+
     def handle_new_request(self, user_text: str) -> str:
         intent = self.llm.parse_intent(user_text)
         no_match_reason = "no_matches"

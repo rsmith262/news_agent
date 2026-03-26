@@ -20,6 +20,14 @@ class TelegramRuntime:
     settings: Settings
     agent: NewsAgent
 
+    def status_text(self) -> str:
+        return (
+            f"NewsAgent is running.\n"
+            f"Version: {self.settings.app_version}\n"
+            f"DRY_RUN: {self.settings.dry_run}\n\n"
+            f"{self.agent.help_text()}"
+        )
+
     def is_authorized(self, chat_id: int | None, user_id: int | None) -> bool:
         return (
             chat_id == self.settings.telegram_chat_id
@@ -31,9 +39,9 @@ class TelegramRuntime:
         if not cleaned:
             return ""
         if cleaned.lower() in {"/start", "start"}:
-            return "NewsAgent is running.\n\n" + self.agent.help_text()
+            return self.status_text()
         if cleaned.lower() in {"/help", "help"}:
-            return self.agent.help_text()
+            return self.status_text()
         if self.agent.pending_candidates:
             result = self.agent.handle_candidate_action(cleaned)
             if result.startswith("No pending draft"):
@@ -92,7 +100,7 @@ def run_telegram_bot() -> None:
             return
         if update.effective_message is not None:
             await update.effective_message.reply_text(
-                "NewsAgent is running.\n\n" + runtime.agent.help_text(),
+                runtime.status_text(),
                 disable_web_page_preview=True,
             )
 
@@ -107,7 +115,7 @@ def run_telegram_bot() -> None:
             return
         if update.effective_message is not None:
             await update.effective_message.reply_text(
-                runtime.agent.help_text(),
+                runtime.status_text(),
                 disable_web_page_preview=True,
             )
 

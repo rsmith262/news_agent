@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 class Settings:
     openai_api_key: str
     openai_model: str
+    app_version: str
     timezone: str
     dry_run: bool
     state_file: Path
@@ -63,6 +64,7 @@ def load_settings(base_dir: Path | None = None) -> Settings:
     return Settings(
         openai_api_key=api_key,
         openai_model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini").strip(),
+        app_version=os.getenv("NEWSAGENT_VERSION", "dev").strip() or "dev",
         timezone=os.getenv("NEWSAGENT_TZ", "Europe/London").strip(),
         dry_run=_as_bool(os.getenv("DRY_RUN"), default=True),
         state_file=root / ".newsagent_state.json",

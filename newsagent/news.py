@@ -125,6 +125,8 @@ def _framing_terms(framing: str | None) -> list[str]:
         return []
 
     lowered = framing.lower().strip()
+    if lowered in {"neutral", "informative", "none", "general"}:
+        return []
     terms: list[str] = []
     for key, values in FRAMING_TERMS.items():
         if key in lowered:

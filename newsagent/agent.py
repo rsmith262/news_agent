@@ -324,6 +324,9 @@ class NewsAgent:
             trimmed = trimmed[:last_space].rstrip()
         return f"{trimmed}..."
 
+    def _remove_em_dashes(self, text: str) -> str:
+        return text.replace("—", ", ").replace("–", ", ")
+
     def _normalize_candidate_draft(self, candidate: DraftCandidate, draft: str) -> str:
         normalized = draft.strip()
         link = candidate.item.link if candidate.item else None
@@ -334,6 +337,7 @@ class NewsAgent:
             body = normalized
 
         body = self._strip_hashtags(body)
+        body = self._remove_em_dashes(body)
         if link:
             available_body = THREADS_MAX_POST_LENGTH - len(link) - 2
             if available_body <= 0:

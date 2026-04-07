@@ -75,6 +75,26 @@ TOPIC_ALIASES: dict[str, list[str]] = {
     "gemini": ["gemini", "google ai", "google"],
 }
 
+RESEARCH_FEED_HINTS: tuple[str, ...] = (
+    "export.arxiv.org/rss/cs.ai",
+    "export.arxiv.org/rss/cs.lg",
+    "paperswithcode.com/rss",
+)
+
+MAINSTREAM_FEED_HINTS: tuple[str, ...] = (
+    "theguardian.com",
+    "nytimes.com",
+    "wired.com",
+    "bbc.co.uk",
+    "technologyreview.com",
+    "venturebeat.com",
+    "theverge.com",
+    "techcrunch.com",
+    "openai.com",
+    "microsoft.com",
+    "blog.google",
+)
+
 
 def _clean(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip().lower()
@@ -155,6 +175,25 @@ def _score_item(item: FeedItem, terms: list[str], now_local: datetime, tz: ZoneI
     return score, hits
 
 
+def _source_score_adjustment(item: FeedItem, request: SearchRequest) -> int:
+    feed_url = item.feed_url.lower()
+    source = item.source.lower()
+    haystack = f"{feed_url} {source}"
+    topic = (request.topic or "").strip().lower()
+
+    if any(hint in haystack for hint in RESEARCH_FEED_HINTS):
+        # Broad searches should favor mainstream/newsroom coverage over raw paper feeds.
+        if not topic:
+            return -10
+        # If the user asked for a specific company/topic, still keep research a bit lower.
+        return -4
+
+    if not topic and any(hint in haystack for hint in MAINSTREAM_FEED_HINTS):
+        return 2
+
+    return 0
+
+
 def _matches_feed_hint(item: FeedItem, hint: str | None) -> bool:
     if not hint:
         return True
@@ -217,6 +256,8 @@ def fetch_ranked_news(
                 if framing_hits == 0:
                     continue
                 score += framing_hits * 3
+
+            score += _source_score_adjustment(item, request)
             if score <= 0:
                 continue
 
@@ -224,4 +265,17 @@ def fetch_ranked_news(
             scored.append((score, item))
 
     scored.sort(key=lambda x: x[0], reverse=True)
-    return [item for _, item in scored]
+
+    # Keep early results diverse so one source/feed does not dominate the first options.
+    diversified: list[FeedItem] = []
+    source_counts: dict[str, int] = {}
+    for _, item in scored:
+        source_key = item.source.strip().lower() or item.feed_url.strip().lower()
+        limit = 1 if len(diversified) < 5 else 2
+        count = source_counts.get(source_key, 0)
+        if count >= limit:
+            continue
+        source_counts[source_key] = count + 1
+        diversified.append(item)
+
+    return diversified
